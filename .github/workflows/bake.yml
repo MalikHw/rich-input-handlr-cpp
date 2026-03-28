@@ -1,0 +1,124 @@
+name: Build, Test & Release
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: rich-input-handlr-linux-x86_64
+            cmake_flags: ""
+          - os: windows-latest
+            artifact_name: rich-input-handlr-windows-x86_64
+            cmake_flags: ""
+          - os: macos-latest
+            artifact_name: rich-input-handlr-macos
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "3.28"
+
+      - name: Configure
+        run: >
+          cmake -B build -S .
+          -DCMAKE_BUILD_TYPE=Release
+          -DRIH_BUILD_EXAMPLES=ON
+          -DRIH_BUILD_TESTS=ON
+          -DRIH_INSTALL=ON
+          -DCMAKE_INSTALL_PREFIX=dist
+          ${{ matrix.cmake_flags }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build --build-config Release --output-on-failure
+
+      - name: Install
+        run: cmake --install build --config Release
+
+      - name: Zip artifact (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd dist
+          zip -r ../${{ matrix.artifact_name }}.zip .
+
+      - name: Zip artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\* -DestinationPath ${{ matrix.artifact_name }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.zip
+          if-no-files-found: error
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Generate a timestamp tag like v20240315-143022
+      - name: Generate tag name
+        id: tag
+        run: |
+          TAG="v$(date -u +'%Y%m%d-%H%M%S')"
+          echo "name=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Generated tag: $TAG"
+
+      - name: Create & push tag
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.tag.outputs.name }}"
+          git push origin "${{ steps.tag.outputs.name }}"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh release-assets/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: "Release ${{ steps.tag.outputs.name }}"
+          body: fml
+          files: release-assets/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
