@@ -4,5 +4,11 @@
   "description": "Because nobody types exactly Y or N. Header-only C++20 yes/no input handler.",
   "homepage": "https://github.com/MalikHw/rich-input-handlr",
   "license": "GPL-3.0-or-later",
-  "features": {}
+  "dependencies": [
+    {
+      "name": "your-library",
+      "git": "https://github.com/MalikHw/rich-input-handlr-cpp",
+      "ref": "main"
+    }
+  ]
 }
