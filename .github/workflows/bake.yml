@@ -25,7 +25,7 @@ jobs:
             cmake_flags: ""
           - os: macos-latest
             artifact_name: rich-input-handlr-macos
-            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64\;x86_64"
+            cmake_flags: "-DCMAKE_OSX_ARCHITECTURES=arm64\\;x86_64"
 
     steps:
       - name: Checkout
