@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/rich_input_handlrTargets.cmake")
+
+check_required_components(rich_input_handlr)
