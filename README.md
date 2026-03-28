@@ -37,11 +37,6 @@ FetchContent_MakeAvailable(rih)
 target_link_libraries(my_target PRIVATE rih::rich_input_handlr)
 ```
 
-### Option 3 — vcpkg (overlay port)
-```
-vcpkg install rich-input-handlr
-```
-
 ---
 
 ## Quick start
